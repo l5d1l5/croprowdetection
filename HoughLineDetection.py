@@ -7,12 +7,8 @@ Created on Thu Apr 14 13:05:18 2016
 
 import os
 import cv2
-import scipy
 import numpy as np
-import matplotlib
-from matplotlib import pyplot as plt
-from PIL import Image
-from math import atan2, degrees, pi
+from math import atan2, pi
 
 # Set working directory
 path = os.chdir('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/output')
@@ -28,6 +24,10 @@ for line in lines:
    cv2.line(img,(x1,y1),(x2,y2),(0,255,10),2)
    
 cv2.imwrite('croprowsP2.tif',img)
+# Extract only the coordinates from NP array
+coordinates = lines[0:1653,0,]
+np.save('coordinates.npy', coordinates)
+np.savetxt('coordinates.txt', coordinates)
 
 # Calculate angle
 linepoints = lines[0:1653]
@@ -38,8 +38,6 @@ for i in linepoints:
     degr = 180 * rads / pi
 
 degrconv = 180 - degr # supplementary angle
-
-np.savetxt('linepoints.txt', linepoints, fmt='int32')
 
 # Read geoTIFFS
 from osgeo.gdal_array import *

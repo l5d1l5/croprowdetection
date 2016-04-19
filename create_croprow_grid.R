@@ -1,7 +1,11 @@
+library(rgeos)
+library(rgdal)
+library(raster)
 
 ###############
 ## LOAD DATA ##
 ###############
+setwd('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/')
 
 # Load binary raster
 vegbin <- raster('output/vegNA.tif')
@@ -96,6 +100,6 @@ writeOGR(grid, getwd(),
 ## CREATE BUFFER ##
 ###################
 
-
+system(paste('ogr2ogr.exe "[temporary file]" D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/temp/60_lines.shp 60_lines -dialect sqlite -sql "SELECT ST_Buffer( geometry , 0.4 ),* FROM 60_lines'))
 
 
