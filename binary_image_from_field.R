@@ -58,7 +58,7 @@ legend("bottomright", legend=objectsLegend1, cex=0.9, fill='Green', ncol=1)
 
 
 # Write to file
-writeRaster(veg, 'output/vegNA.tif', overwrite=TRUE, prj=TRUE, format = 'Gtiff',
+writeRaster(veg, 'output/vegNA.tif', overwrite=TRUE, prj=TRUE, format = 'GTiff',
             options=c("COMPRESS=NONE", "TFW=YES, PROFILE=BASELINE"))
 
 system(paste('-t_srs +proj=utm +zone=51 +datum=WGS84 gdalwarp output/vegNA.tif output/vegNAout.tif'))

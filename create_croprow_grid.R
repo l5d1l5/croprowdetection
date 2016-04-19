@@ -2,6 +2,7 @@ library(rgeos)
 library(rgdal)
 library(raster)
 
+
 ###############
 ## LOAD DATA ##
 ###############
@@ -102,4 +103,22 @@ writeOGR(grid, getwd(),
 
 system(paste('ogr2ogr.exe "[temporary file]" D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/temp/60_lines.shp 60_lines -dialect sqlite -sql "SELECT ST_Buffer( geometry , 0.4 ),* FROM 60_lines'))
 
+buf <- readOGR('temp/buffer.shp', 'buffer')
+ndvi <- raster('ndvi.tif')
 
+rowsndvi <- mask(ndvi, buf)
+# Write to file
+writeRaster(rowsndvi, 'output/rowsndvi.tif', overwrite=TRUE, prj=TRUE, format = 'GTiff',
+            options=c("COMPRESS=NONE", "TFW=YES"))
+
+# Inspect row histoggram to determine treshold value for soil pixels
+par(mfrow=c(1,2)) 
+plot(rowsndvi, main = "Map")
+hist(rowsndvi, main = "NDVI frequency")
+
+gaps <- rowsndvi <= -0.12
+gaps[gaps == 0] <- NA
+
+# Write to file
+writeRaster(gaps, 'output/gaps.tif', overwrite=TRUE, prj=TRUE, format = 'GTiff',
+            options=c("COMPRESS=NONE", "TFW=YES"))
