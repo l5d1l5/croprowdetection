@@ -42,6 +42,25 @@ angle <- anglecalc(linesNptxt)
 epsg <- crs(vegbin)
 line_amount <- 60
 
+#####################
+## INCREASE EXTENT ##
+#####################
+
+extentincrease <- function(percentage, raster) {
+  xminnew <- xmin(vegbin) - ((xmin(vegbin) / 1000) * percentage)
+  xmaxnew <- xmax(vegbin) + ((xmax(vegbin) / 1000) * percentage)
+  
+  yminnew <- ymin(vegbin) - ((ymin(vegbin) / 1000) * percentage)
+  ymaxnew <- ymax(vegbin) + ((ymax(vegbin) / 1000) * percentage)
+  
+  ex <- extent(xminnew, xmaxnew, ymin(raster), ymaxnew)
+  area <- setExtent(raster, ex, keepres=TRUE, snap=TRUE)
+  
+  return(area)
+}
+
+newex <- extentincrease(0.20, vegbin)
+
 #################
 ## CREATE GRID ##
 #################
@@ -90,12 +109,12 @@ gridcreate <- function(rasterextent, epsg, line_amount, line_length, angle, spac
   return(splinesdf)
   }
 
-grid <- gridcreate(vegbin, epsg, 45, 225, angle, 1.8)
+grid <- gridcreate(newex, epsg, 145, 225, angle, 1.8)
 
 
 # write a shapefile
 writeOGR(grid, getwd(),
-         "temp/60_lines", driver="ESRI Shapefile")
+         "temp/60_linesnewex", driver="ESRI Shapefile")
 
 ###################
 ## CREATE BUFFER ##
