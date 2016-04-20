@@ -68,7 +68,7 @@ system(paste('-t_srs +proj=utm +zone=51 +datum=WGS84 gdalwarp output/vegNA.tif o
 ## Manual re-saving in Qgis still needed to save tif as a rendered image in order for it to load into python line detection module ##
 
 # Run python script
-system(paste("python D:/Sugarcane_Project/Scripts/HoughLineDetection.py"))
+system(paste("python C:/Users/darellvdv/Documents/croprowdetection/HoughLineDetection.py"))
 
 ## LOAD PYTHON RESULTS ##
 # Load lines tiff

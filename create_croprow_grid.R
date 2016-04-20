@@ -136,7 +136,7 @@ gridcreate <- function(rasterextent, epsg, line_amount, line_length, angle, spac
   return(splinesdf)
 }
 
-grid <- gridcreate(newex, epsg, line_amount, line_length, angle, spacing)
+grid <- gridcreate(vegbin, epsg, line_amount, line_length, angle, spacing)
 
 
 # write a shapefile
