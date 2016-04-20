@@ -29,7 +29,15 @@ anglecalc <- function(numpy_array){
   dy <- numpy_array[,4] - numpy_array[,2]
   
   rads <- atan2(dy,dx)
-  radavg <- mean(rads)
+  
+  # Select rads based on quantile (80% of data) and avarage
+  q1 <- quantile(rads, 0.10)
+  q2 <- quantile(rads, 0.90)
+  
+  radssub <- as.data.frame(subset(rads, rads >= q1 & rads <= q2))
+  radavg <- mean(radssub[,1])
+  
+  # Convert rad
   radconv <- pi - (-radavg)
   radconv <- pi - radconv
   
@@ -72,15 +80,29 @@ gridcreate <- function(rasterextent, epsg, line_amount, line_length, angle, spac
   clist <-  matrix(NA, nrow=line_amount, ncol=2)
   names(clist) <- c('x','y')
   
-  # Create x points
-  for(i in 1:line_amount){
-    clist[[i,2]]<-ymin(rasterextent)
-  }
+  # Rad 2 degreee
+  rad2deg <- function(rad) {(rad * 180) / (pi)}
+  angledeg <- rad2deg(angle)
+  angledegsup <- 180 + angledeg
   
-  # Create y values
-  for (i in 1:line_amount){
-    clist[[i,1]] <- (xmin(rasterextent) + (i*spacing))
-  }
+  if(angledegsup <= 210 & angledegsup >= 150){
+    
+    # Create y points
+    for(i in 1:line_amount){
+      clist[[i,2]]<- (ymin(rasterextent) + (i*spacing))
+    }
+    
+    # Create x values
+    for (i in 1:line_amount){
+      clist[[i,1]] <- xmin(rasterextent) 
+    }} else {
+      for(i in 1:line_amount){
+        clist[[i,2]]<- ymin(rasterextent)
+      }
+      for (i in 1:line_amount){
+        clist[[i,1]] <- (xmin(rasterextent) + (i*spacing))
+      }
+    }
   
   # Generate line
   x1 = clist[,1]
@@ -105,9 +127,9 @@ gridcreate <- function(rasterextent, epsg, line_amount, line_length, angle, spac
   splines <- SpatialLines(rawlist, proj4string = epsg)
   data <- points[1:line_amount,]
   splinesdf <- SpatialLinesDataFrame(splines, data, match.ID = FALSE)
-
+  
   return(splinesdf)
-  }
+}
 
 grid <- gridcreate(newex, epsg, 145, 225, angle, 1.8)
 
