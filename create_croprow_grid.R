@@ -1,11 +1,15 @@
-library(rgeos)
-library(rgdal)
-library(raster)
+#-----------------------------------------------------------------------------------#
+# Script to create a binary image from sugarcane field, based on NDVI thresholds    #  
+# execute Python script for line detection using OpenCV2, load results from numpy   #
+# array. Use points to calculate angle and generate grid based on angle, linelength #
+# spacing and extent. Buffer croprows for gap detection                             #
+#-----------------------------------------------------------------------------------#
 
+# Load libraries
+packages <- c('rgeos', 'rgdal', 'raster', 'bfastSpatial', 'sp', 'igraph', 'spatstat', 'maptools')
+lapply(packages, require, character.only = TRUE)
 
-###############
-## LOAD DATA ##
-###############
+# setwd
 setwd('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/')
 
 # Load binary raster
@@ -44,11 +48,12 @@ anglecalc <- function(numpy_array){
   return(radconv)
 }
 
-# Set parameters
+## Set parameters ##
 line_length <- 250;
 angle <- anglecalc(linesNptxt)
 epsg <- crs(vegbin)
 line_amount <- 60
+spacing <- 1.5
 
 #####################
 ## INCREASE EXTENT ##
@@ -131,7 +136,7 @@ gridcreate <- function(rasterextent, epsg, line_amount, line_length, angle, spac
   return(splinesdf)
 }
 
-grid <- gridcreate(newex, epsg, 145, 225, angle, 1.8)
+grid <- gridcreate(newex, epsg, line_amount, line_length, angle, spacing)
 
 
 # write a shapefile
