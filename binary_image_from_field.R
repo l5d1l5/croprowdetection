@@ -79,7 +79,7 @@ writeRaster(detectedlines_bin, 'output/lines_bin.tif', overwrite = TRUE) # write
 
 # Load point coordinates
 linesNptxt <- read.table('output/coordinates.txt', sep = '') # load numpy array
-linesNptxt <- round(linesNptxt, digits = 2)
+linesNptxt <- round(linesNptxt, digits = 4)
 colnames(linesNptxt) <- c('p1x','p1y','p2x','p2y')
 linesNptxt <- transform(linesNptxt, id = as.numeric(interaction(p1x, p2y, drop=TRUE)))
 
@@ -100,8 +100,8 @@ writeOGR(points, getwd(),
 
 #--------------------------------------------------------------------------------------#
 ## EXTRACT LINES ##
-begin.coord <- data.frame(lon=c(-linesNptxt[,2]), lat=c(linesNptxt[,1]))
-end.coord <- data.frame(lon=c(-linesNptxt[,4]), lat=c(linesNptxt[,3]))
+begin.coord <- data.frame(lon=c(linesNptxt[,1]), lat=c(-linesNptxt[,2]))
+end.coord <- data.frame(lon=c(linesNptxt[,3]), lat=c(-linesNptxt[,4]))
 
 ## raw list to store Lines objects
 rawlist <- vector("list", nrow(begin.coord))
