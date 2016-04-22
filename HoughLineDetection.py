@@ -9,6 +9,7 @@ import os
 import cv2
 import numpy as np
 from math import atan2, pi
+from matplotlib import pyplot as plt
 
 # Set working directory
 path = os.chdir('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/output')
