@@ -1,9 +1,6 @@
 ## LOAD PYTHON RESULTS ##
-# Load lines tiff
-detectedlines <- raster('croprowsP.tif')
-detectedlines_bin <- detectedlines > 0.1 # binary detected lines
-
-writeRaster(detectedlines_bin, 'output/lines_bin.tif', overwrite = TRUE) # write lines to file
+ras <- raster('output/vegNA.tif')
+epsg <- crs(ras)
 
 #--------------------------------------------------------------------------------------#
 # Load point coordinates
@@ -29,6 +26,17 @@ q2 <- quantile(rads, 0.90)
 
 linesNptxt <- subset(linesNptxt, rads >= q1 & rads <= q2)
 
+# Add line length
+library(pracma)
+
+hy <- hypot(linesNptxt[,1], linesNptxt[,2])
+linesNptxt <- cbind(linesNptxt, hy)
+
+# Filter out short lines by using top 20 percentile
+q2 <- quantile(hy, 0.70)
+
+linesNptxt <- subset(linesNptxt, hy >= q2)
+
 #--------------------------------------------------------------------------------------#
 
 # Convert to spatialpoints
@@ -48,8 +56,8 @@ writeOGR(points, getwd(),
 
 #--------------------------------------------------------------------------------------#
 ## EXTRACT LINES ##
-begin.coord <- data.frame(lon=c(linesNptxt[,1]), lat=c(-linesNptxt[,2]))
-end.coord <- data.frame(lon=c(linesNptxt[,3]), lat=c(-linesNptxt[,4]))
+begin.coord <- data.frame(lon=c(linesNptxt[,1]), lat=c(linesNptxt[,2]))
+end.coord <- data.frame(lon=c(linesNptxt[,3]), lat=c(linesNptxt[,4]))
 
 ## raw list to store Lines objects
 rawlist <- vector("list", nrow(begin.coord))
@@ -63,10 +71,11 @@ splinesdf <- SpatialLinesDataFrame(splines, linesNptxt, match.ID = FALSE)
 
 # write a shapefile
 writeOGR(splinesdf, getwd(),
-         "output/all_lines", driver="ESRI Shapefile")
+         "output/all_lines_filtered", driver="ESRI Shapefile")
 
 #--------------------------------------------------------------------------------------#
-# Merge lines
+
+
 
 linesdf <- as.data.frame(splinesdf)
 
