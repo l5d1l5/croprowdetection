@@ -141,3 +141,16 @@ cv2.imwrite('croprows_regionscleaned.tif',cv_image)
 coordinates = lines[0:,0,]
 np.save('coordinates.npy', coordinates)
 np.savetxt('coordinates.txt', coordinates)
+
+cv_image = img_as_ubyte(regions_cleaned)
+
+lines = cv2.HoughLinesP(cv_image,rho=0.9,theta=np.pi/34,threshold=500,lines=np.array([]),
+                        minLineLength=100,maxLineGap=10)
+for line in lines:
+   x1,y1,x2,y2 = line[0]
+   cv2.line(cv_image,(x1,y1),(x2,y2),(50,255,10),2)
+   
+cv2.imwrite('croprows_regionscleaned2.tif',cv_image)
+
+import sys
+sys.exit()
