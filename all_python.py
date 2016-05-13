@@ -4,11 +4,11 @@ Created on Mon May 09 10:11:46 2016
 
 @author: darellvdv
 """
-
 import numpy as np
 import os
 import math
 from osgeo import gdal
+from osgeo.gdalconst import GA_ReadOnly, GDT_Float32
 from matplotlib import pyplot as plt
 import cv2
 
@@ -21,10 +21,84 @@ import scipy.ndimage
 from scipy.stats import itemfreq
 
 # Set working directory
-path = os.chdir('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/output')
+path = os.chdir('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics')
 
-# READ RASTER (needs to be an NDVI image)
-image = cv2.imread('ndvi_ren.tif',0)
+# Open Ortho and print metadata
+filename = 'Sugar_Bacolod_sugarcanefields_onefield_ortho.tif'
+dataSource = gdal.Open(filename, GA_ReadOnly)
+if not dataSource:
+    print "THE FOLLOWING RASTER FAILED TO LOAD:\n", filename
+else:
+    print "\nInformation about " + filename 
+    print "Driver: ", dataSource.GetDriver().ShortName,"/", \
+    dataSource.GetDriver().LongName
+    print "Size is ",dataSource.RasterXSize,"x",dataSource.RasterYSize, \
+    'x',dataSource.RasterCount
+    
+    print '\nProjection is: ', dataSource.GetProjection()
+    
+    print "\nInformation about the location of the image and the pixel size:"
+    geotransform = dataSource.GetGeoTransform()
+    if not geotransform is None:
+        print 'Origin = (',geotransform[0], ',',geotransform[3],')'
+        print 'Pixel Size = (',geotransform[1], ',',geotransform[5],')'
+    
+# CALCULATE NDVI #
+    
+# Read data into an array
+band1Arr = dataSource.GetRasterBand(1).ReadAsArray(0,0,dataSource.RasterXSize, dataSource.RasterYSize)
+band4Arr = dataSource.GetRasterBand(4).ReadAsArray(0,0,dataSource.RasterXSize, dataSource.RasterYSize)
+print type(band1Arr)
+
+# set the data type
+band1Arr=band1Arr.astype(np.float32)
+band4Arr=band4Arr.astype(np.float32)
+
+# Derive the NDVI
+mask = np.greater(band1Arr+band4Arr,0)
+
+# set np.errstate to avoid warning of invalid values (i.e. NaN values) in the divide 
+with np.errstate(invalid='ignore'):
+    ndvi = np.choose(mask,(-99,(band4Arr-band1Arr)/(band4Arr+band1Arr)))
+print "NDVI min and max values", ndvi.min(), ndvi.max()
+# Check the real minimum value
+print ndvi[ndvi>-99].min()
+
+# Write the result to disk
+driver = gdal.GetDriverByName('GTiff')
+outDataSet=driver.Create('output/ndvi_new.tif', dataSource.RasterXSize, dataSource.RasterYSize, 1, GDT_Float32)
+outBand = outDataSet.GetRasterBand(1)
+outBand.WriteArray(ndvi,0,0)
+outBand.SetNoDataValue(-99)
+
+# set the projection and extent information of the dataset
+outDataSet.SetProjection(dataSource.GetProjection())
+outDataSet.SetGeoTransform(dataSource.GetGeoTransform())
+
+# Flush to save
+outBand.FlushCache()
+outDataSet.FlushCache()
+
+# MANUAL RESAVING IN QGIS STILL NEEDED ##
+# Write image using OpenCV for saving depth and re-opening with imread (JPG needed)
+ndviren = (ndvi*255)
+cv2.imwrite('output/ndvi_ren_new.jpg', ndviren)
+
+import scipy.misc
+scipy.misc.toimage(ndvi, cmin=0.0, cmax=255).save('output/ndvi_ren_new.jpg')
+
+## _____________###
+
+# APPLY ADAPTIVE THRESHOLDING AND CLEANING #
+
+# READ RASTER (needs to be an square NDVI image of just the sugarcane field)
+imagepath = 'D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/output/ndvi_new_ren.tif'
+image = cv2.imread(imagepath, 0)
+try:
+    if not image:
+        print "NO IMAGE LOADED IN:\n", imagepath
+except ValueError:
+    pass
 
 # apply adaptive opencv threshold
 th3 = cv2.adaptiveThreshold(image,255,cv2.ADAPTIVE_THRESH_MEAN_C,\
@@ -74,8 +148,8 @@ plt.title('Before labeling'), plt.xticks([]), plt.yticks([])
 plt.subplot(1,2,2),plt.imshow(crop_regions_relab,cmap = 'nipy_spectral')
 plt.title('After labeling'), plt.xticks([]), plt.yticks([])
 
-row_centers = ndimage.measurements.center_of_mass(regions_cleaned,crop_regions_relab,itemfreq(crop_regions_relab)[1:,0])
-np.savetxt('centroidscord.txt', row_centers)
+#row_centers = ndimage.measurements.center_of_mass(regions_cleaned,crop_regions_relab,itemfreq(crop_regions_relab)[1:,0])
+#np.savetxt('centroidscord.txt', row_centers)
 
 #-----------------------------------------
 # Calulcate lines from skikit regions cleaned
@@ -128,21 +202,21 @@ def anglecalc(hough_lines):
 
 # CREATE GRID ##
 
-imgun = cv2.imread('ndvi_ren.tif',cv2.IMREAD_UNCHANGED)
-img = cv2.imread('ndvi_ren.tif',cv2.IMREAD_GRAYSCALE)
+#imgun = cv2.imread('ndvi_ren.tif',cv2.IMREAD_UNCHANGED)
+#img = cv2.imread('ndvi_ren.tif',cv2.IMREAD_GRAYSCALE)
 
-cv2.imshow('ndvi',img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+#cv2.imshow('ndvi',img)
+#cv2.waitKey(0)
+#cv2.destroyAllWindows()
 
-pixels = img[57, 23:87]
+#pixels = img[57, 23:87]
 
-line_amount = 20
-line_length = 2000
+line_amount = 2000
+line_length = 5000
 angle = anglecalc(coordinates)[0]
-spacing = 20 # change this to automaticcaly detect cell size
+spacing = 1 # change this to automaticcaly detect cell size
 
-def gridcreate(line_amount, line_length, angle, spacing):
+def gridcreate(line_amount, line_length, extent, angle, spacing):
     '''
     line_amount = amount of lines to be created
     line_length = total length from starting point for each line
@@ -160,7 +234,7 @@ def gridcreate(line_amount, line_length, angle, spacing):
     end_coord_array = np.zeros((h, w))
     # Set x and y min
     xmin = 0 # set this to automaticcaly detect xmin
-    ymax = 1910 # set this to automaticcaly detect ymax
+    ymax = extent.shape[0] # set this to automaticcaly detect ymax
     
     # Generate start coordinates and fill array 
     if anglecalc(coordinates)[1] <= 210 and anglecalc(coordinates)[1] >= 150:
@@ -190,15 +264,17 @@ def gridcreate(line_amount, line_length, angle, spacing):
         
 
 
-grid = gridcreate(line_amount, line_length, angle, spacing)
+grid = gridcreate(line_amount, line_length, ndvi, angle, spacing)
 grid = np.array(grid)
 
 # Plot the grid
-plt.imshow(image)
+plt.imshow(ndvi)
 plt.plot([grid[0,:,0], grid[1,:,0]], [grid[0,:,1], grid[1,:,1]], 'ro-')
 
 plt.show()
 
+line_grid = grid
+raster = ndvi.astype('float') # sets -99 values to nan
 
 
 def extractvalues(line_grid, raster):
@@ -214,10 +290,10 @@ def extractvalues(line_grid, raster):
     x0, y0 = line_grid[0,:,0], line_grid[0,:,1]
     x1, y1 = line_grid[1,:,0], line_grid[1,:,1]
     
-    length = np.hypot(x1[1]-x0[1], y1[1]-y0[1])
+    length = (int(np.hypot(x1[1]-x0[1], y1[1]-y0[1])) + 1)
     
     # Check if line length is correct
-    if int(np.hypot(x1[1]-x0[1], y1[1]-y0[1])) != line_length:
+    if length != line_length:
         print 'Error: line length not in same range'
         return
         
@@ -225,21 +301,42 @@ def extractvalues(line_grid, raster):
         w, h = line_length, line_amount
         xvalues_array = np.zeros((h, w))
         for i in range(line_amount):
-            xvalues_array[i] = np.linspace(line_grid[0][i][0], line_grid[1][i][0], length)
+            xvalues_array[i] = np.linspace(line_grid[0][i][0], line_grid[1][i][0], line_length)
     
         yvalues_array = np.zeros((h, w))
         for i in range(line_amount):
-            yvalues_array[i] = np.linspace(line_grid[0][i][1], line_grid[1][i][1], length)
+            yvalues_array[i] = np.linspace(line_grid[0][i][1], line_grid[1][i][1], line_length)
             
-        # Extract the values along the line
+        # Transpose image and add 0 values to increase extent according to grid
         imaget = np.transpose(raster)
-        zi = imaget[xvalues_array.astype(np.int), yvalues_array.astype(np.int)]
-
+        # determine added rows based on 
+        plus = (((xvalues_array[(line_amount-1),(line_length-1)]) + 2) - ndvi.shape[0])
+        newcol0 = np.zeros((plus, 4030))
+        imaget2 = np.append(imaget, newcol0, axis = 0)
+        newcol1 = np.zeros((imaget2.shape[0], plus))
+        imaget2 = np.append(imaget2, newcol1, axis = 1)
+        
+        # Calculate values underneath lines
+        try:
+            zi = imaget2[xvalues_array.astype(np.int), yvalues_array.astype(np.int)]
+        except IndexError:
+            zi = 'null'
+            
         zitrans = zi.T
     
     return zitrans
     
-values = extractvalues(grid, image)
+values = extractvalues(grid, raster)
+
+
+    
+# Get pixel extent of most outer line:
+#xmax = xvalues_array[(line_amount-1),(line_length-1)]
+#ymin = yvalues_array[0,0]
+
+# create column column
+#new_colx = np.zeros(((int(xmax) + 2 - ndvi.shape[0]), ndvi.shape[1]))
+
 
 # Extract line from coordinates
 x0, y0 = grid[0,:,0], grid[0,:,1]
@@ -247,7 +344,7 @@ x1, y1 = grid[1,:,0], grid[1,:,1]
 
 #-- Plot grid and value lines
 fig, axes = plt.subplots(nrows=2)
-axes[0].imshow(image)
+axes[0].imshow(raster)
 axes[0].plot([x0, x1], [y0, y1], 'ro-')
 axes[0].axis('image')
 
@@ -257,12 +354,18 @@ plt.show()
 
 
 # Calculate lines with highest values
+maskedvalues = np.ma.masked_array(values, np.isnan(values)) # mask NaN values
 valuestotal = np.zeros((line_amount, 1))
 for i in range(line_amount):
-    valuestotal[i] = np.sum(values[:,i])
+    valuestotal[i] = np.sum(maskedvalues[:,i])
 
-valuestotal_max = valuestotal > np.percentile(valuestotal, 50)
+valuestotal_max = valuestotal > np.percentile(valuestotal, 75)
+lineam = (line_amount / 40) # interval of 40 lines (differs per crop spacing! -> look for automatic detection)
+valuestotal_interval = ((valuestotal.reshape(lineam, 40).T) > np.percentile((valuestotal.reshape(lineam, 40).T), 
+                         99, axis=0)).flatten('F')
 
+# Select lines from top 25 percentile for rotating
+best_lines = [val for is_good, val in zip(valuestotal_interval, (valuestotal.tolist())) if is_good]
 
 
 def rotate_lines(line_grid_max, degrees):

@@ -72,7 +72,7 @@ anglecalc <- function(numpy_array){
 line_length <- 120;
 angle <- as.numeric(anglecalc(linesNptxt)[1])
 epsg <- crs(ndvi)
-line_amount <- 250
+line_amount <- 10
 spacing <- 0.045
 
 #################
@@ -153,12 +153,14 @@ gridcreate <- function(rasterextent, epsg, line_amount, line_length, angle, spac
   data <- points[1:line_amount,]
   splinesdf <- SpatialLinesDataFrame(splines, data, match.ID = FALSE)
   
-  splinesdfVal <- extract(ndvi, splinesdf, method = 'simple', fun = 'sum', na.rm = TRUE, df = TRUE, sp = TRUE)
+  #splinesdfVal <- extract(ndvi, splinesdf, method = 'simple', fun = 'sum', na.rm = TRUE, df = TRUE, sp = TRUE)
   
-  return(splinesdfVal)
+  return(splinesdf)
 }
 
 system.time(grid <- gridcreate(ndvi, epsg, line_amount, line_length, angle, spacing))
+# total time: 12.48
+# total time: 122.13
 
 # write a shapefile
 writeOGR(grid, getwd(),
@@ -208,6 +210,7 @@ writeOGR(grid, getwd(),
 #cl <- makeCluster(no_cores)
 #linevalMC <- parLapply(cl, ndvi, fun = extract(ndvi, grid, method = 'simple', fun = 'sum', na.rm = TRUE, df = TRUE))
 
+## ELIDE OUT OF LOOP
 cropmintwo <- elide(grid_croprows, rotate = -0.2, center=apply(bbox(grid_croprows), 1, mean))
 proj4string(cropmintwo) <- epsg
 cropminone <- elide(grid_croprows, rotate = -0.1, center=apply(bbox(grid_croprows), 1, mean))
@@ -217,8 +220,69 @@ proj4string(cropminone) <- epsg
 writeOGR(cropminone, getwd(),
          "temp/cropminone", driver="ESRI Shapefile")
 
+#----------------------------------------------------------#
+## FASTER METHOD TESTING ##
+
+library(foreach)
+library(doParallel)
+library(tcltk)
+library(sp)
+library(raster)
+
+# Method 2:
+
+registerDoParallel(16)
+ptm <- proc.time()
+# Grab cell number
+cell <- cellFromLine(ndvi, grid)
+# Create a raster with only those cells
+r <- rasterFromCells(ndvi, cell[[1]], values=FALSE)
+result <- foreach(i = 1:dim(ndvi)[3],.packages='raster',.combine=cbind,.inorder=TRUE) %dopar% {
+  # Get value and store
+  getValues(crop(ndvi[[i]],r))
+}
+proc.time() - ptm
+endCluster()
+
+resultdf <- as.data.frame(result)
+# total time: 12.57
+# total time: 116.30
+
+# method 3:
+
+croprast <- function(poly, raster){
+  clip1 <- crop(raster, extent(poly))
+  clip2 <- rasterize(poly, clip1, mask = TRUE)
+  ext <- getValues(clip2)
+  tab <- table(ext)
+  mat <- as.data.frame(tab)
+  sum <- sum(as.numeric(as.character(mat[,1])))
+  return(sum)
+}
+
+system.time(ndvival <- croprast(grid, ndvi))
+# total time: 15.92
+# total time: 110.00
+
+# Method 4:
+raszon <- function(poly, raster) {
+  clip1 <- crop(raster, extent(poly))
+  lineras <- rasterize(poly, clip1, mask = FALSE)
+  zon <- zonal(clip1, lineras, fun = 'sum')
+  return(zon)
+}
+
+system.time(ndvivalzon <- raszon(grid, ndvi))
+# total time: 14.06
+# total time: 110.45
+
+# Method 5:
+gr <- readAsciiGrid('output/ndviasc.asc')
+over <- overlay(clip1, gr, fun ='sum')
 
 #----------------------------------------------------------#
+## UNLIST TESTING ##
+
 rotatelist <- list(-1,-0.5,0,0.5,1)
 
 gridElide <- lapply(rotatelist, function(x) elide(splines, rotate = x, center=apply(bbox(splines), 1, mean)))
@@ -243,16 +307,34 @@ writeOGR(gridElide, getwd(),
 
 #-------------------------------------------------------------#
 
+# GAP TESTING ##
 
+# Created buffer in qgis, clipped ndvi from buffer
+# load clipped NDVI
+ndvi_onerow <- raster('temp/ndvi_onerow.tif')
 
+tresholdmax = 0
+areatreshold = 0.1
 
+## IMAGE SEGMENTATION ##
 
+# Row gap extract function
+gapExtract <- function(inputlayer) {
+  gap <- inputlayer <= tresholdmax
+  gap[gap == 0] <- NA
+  gap <- areaSieve(gap, thresh = areatreshold, directions = 4)
+  return(gap)
+}
 
+# Extract the vegetation from NDVI layer
+gap <- gapExtract(ndvi_onerow)
 
+writeRaster(gap, 'temp/row_gaps.tif', overwrite=TRUE, prj=TRUE, format = 'GTiff',
+            options=c("COMPRESS=NONE", "TFW=YES, PROFILE=BASELINE"))
 
+#-------------------------------------------------------------#
 
-
-
+# DRAFTS ##
 
 
 # Set Parameters
