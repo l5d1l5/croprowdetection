@@ -5,13 +5,16 @@ packages <- c('rgdal', 'raster', 'sp')
 lapply(packages, require, character.only = TRUE)
 
 # setwd
-setwd('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/')
+#setwd('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/')
+
+# Fetch command line arguments
+myArgs <- commandArgs(trailingOnly = TRUE)
 
 ## LOAD PYTHON RESULTS ##
-ras <- raster('output/vegNA.tif')
+ras <- raster(paste(myArgs,'/ndvi_f6.tif', sep = ''))
 epsg <- crs(ras)
 
-linecoords <- read.table('output3/rotatedlines.txt', sep = '')
+linecoords <- read.table(paste(myArgs,'/rotatedlines.txt', sep = ''))
 
 ## EXTRACT LINES ##
 begin.coord <- data.frame(lon=c(linecoords[,1]), lat=c(linecoords[,2]))
@@ -29,5 +32,6 @@ splinesdf <- SpatialLinesDataFrame(splines, linecoords, match.ID = FALSE)
 
 
 # write a shapefile
-writeOGR(splinesdf, getwd(),
-         "output3/cmdtest", driver="ESRI Shapefile")
+writeOGR(splinesdf, (paste(myArgs, sep = '')), '/croprows', driver="ESRI Shapefile")
+
+cat('Shapefile created')

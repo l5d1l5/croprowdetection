@@ -663,10 +663,13 @@ import subprocess
 command = 'Rscript'
 path2script = 'C:\Users\darellvdv\Documents\croprowdetection\create_lines_from_python.R'
 
+# Variable number of args in a list
+args = [args["output"]]
+
 # Build subprocess command
-cmd = [command, path2script]
+cmd = [command, path2script] + args
 
 # check_output will run the command and store to result
 x = subprocess.call(cmd, universal_newlines=True)
 
-print "ALL DONE!"
+print "  ALL DONE!"
