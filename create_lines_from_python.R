@@ -1,16 +1,15 @@
 # Load libraries
-packages <- c('rgeos', 'rgdal', 'raster', 'bfastSpatial', 'sp', 'igraph', 'spatstat', 'maptools')
+packages <- c('rgeos', 'rgdal', 'raster', 'sp')
 lapply(packages, require, character.only = TRUE)
 
+# setwd
+setwd('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/')
 
 ## LOAD PYTHON RESULTS ##
 ras <- raster('output/vegNA.tif')
 epsg <- crs(ras)
 
-# setwd
-setwd('D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/')
-
-linecoords <- read.table('rotatedlines.txt', sep = '')
+linecoords <- read.table('output3/rotatedlines.txt', sep = '')
 
 ## EXTRACT LINES ##
 begin.coord <- data.frame(lon=c(linecoords[,1]), lat=c(linecoords[,2]))
@@ -29,4 +28,4 @@ splinesdf <- SpatialLinesDataFrame(splines, linecoords, match.ID = FALSE)
 
 # write a shapefile
 writeOGR(splinesdf, getwd(),
-         "output/f3test_all", driver="ESRI Shapefile")
+         "output3/cmdtest", driver="ESRI Shapefile")
