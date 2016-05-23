@@ -1,5 +1,7 @@
+options(warn=-1)
+
 # Load libraries
-packages <- c('rgeos', 'rgdal', 'raster', 'sp')
+packages <- c('rgdal', 'raster', 'sp')
 lapply(packages, require, character.only = TRUE)
 
 # setwd

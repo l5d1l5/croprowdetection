@@ -238,7 +238,7 @@ def extractvalues(line_grid, raster):
     length = (int(np.hypot(x1[1]-x0[1], y1[1]-y0[1])))
     
     # Check if line length is correct
-    if length != (config.line_length):
+    if length != config.line_length:
         print 'Warning: line length not in same range'
         pass
         
