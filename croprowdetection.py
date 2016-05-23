@@ -672,4 +672,4 @@ cmd = [command, path2script] + args
 # check_output will run the command and store to result
 x = subprocess.call(cmd, universal_newlines=True)
 
-print "  ALL DONE!"
+print " ALL DONE!"
