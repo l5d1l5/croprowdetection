@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Fri May 27 15:22:14 2016
+
+@author: darellvdv
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Mon May 23 10:31:57 2016
 
 Crop row detection script based on sugarcane fields
@@ -21,8 +28,8 @@ import cv2
 
 from skimage.segmentation import clear_border
 from skimage.measure import label
-from skimage.measure import regionprops
-from skimage.color import label2rgb
+#from skimage.measure import regionprops
+#from skimage.color import label2rgb
 from skimage import img_as_ubyte
 
 import scipy.misc
@@ -44,14 +51,14 @@ config = args["config"]
 import config
 
 # Load parameters
-line_amount = config.line_amount # must be able to divided by 40!
-line_length = config.line_length
-spacing = config.spacing # change this to automaticcaly detect cell size
-degreelist = config.degreelist #[359.8, 359.9, 0, 0.1, 0.2] # degrees to rotate best lines
+line_amount = 6000 # must be able to divided by 40!
+line_length = 5000
+spacing = 1 # change this to automaticcaly detect cell size
+degreelist = [359.8, 359.9, 0, 0.1, 0.2] # degrees to rotate best lines
 
 # Get filename and create output dir
-filename = args["image"]
-output = args["output"]
+filename = "D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/Sugar_Bacolod_sugarcanefields_onefield_ortho.tif"
+output = "D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/output10"
 
 def make_sure_path_exists(path):
     try:
@@ -244,7 +251,7 @@ def extractvalues(line_grid, raster):
     length = (int(np.hypot(x1[1]-x0[1], y1[1]-y0[1])))
     
     # Check if line length is correct
-    if length != config.line_length:
+    if length != length:
         print 'Warning: line length not in same range, try re-cropping'
         sys.exit()
         
@@ -557,10 +564,9 @@ windowSize = 2
 
 if anglecalc(coordinates)[1] < 0:
     for i in range(0,len(bestlines_coord_val)-windowSize-1):
-        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) < 5) # <- NOW WORKING!
+        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) < 10) # <- not always working with + angles: see error when executing
 else:
-    for i in range(0,len(bestlines_coord_val)-windowSize-1):
-        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) < -5) # changed from >
+        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) > 10) # changed from >
 
 bestlines_coord_val = np.hstack((bestlines_coord, bestlines_val, diff))
 bestlines_coord_val = bestlines_coord_val[np.logical_not(bestlines_coord_val[:,5] == 1)] # Now only removes closest line, while not looking at highest value
@@ -596,15 +602,14 @@ for i in range(len(rotatedlines)):
 yvalues_array = np.zeros((h, w))
 for i in range(len(rotatedlines)):
     yvalues_array[i] = np.linspace(rotatedlines[i,1], rotatedlines[i,3], line_length)
-
-# IMPROVE CODE BELOW, STILL A BIT MESSY AND PARTS NOT NEEDED > SEE EXTRACT FUNCTION           
+            
 # Transpose image and add 0 values to increase extent according to grid
 imaget = np.transpose(raster)
 # determine extension of image canvas based on grid
-#if anglecalc(coordinates)[1] < 0:
-#    plus = (((xvalues_array[(line_amount-1),(line_length-1)]) + 2) - int(ndvi.shape[0])) # <- fix this line!
-#else:
-plus = (((xvalues_array[(0),(0)]) + 2) + int(ndvi.shape[0]))
+if anglecalc(coordinates)[1] > 0:
+    plus = (((xvalues_array[(line_amount-1),(line_length-1)]) + 2) - int(ndvi.shape[0])) # <- fix this line!
+else:
+    plus = (((xvalues_array[(0),(0)]) + 2) + int(ndvi.shape[0]))
 newcol0 = np.zeros((plus, ndvi.shape[0]))
 imaget2 = np.append(imaget, newcol0, axis = 0)
 newcol1 = np.zeros((imaget2.shape[0], plus))
