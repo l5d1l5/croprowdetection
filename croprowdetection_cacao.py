@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri May 27 15:22:14 2016
+Created on Thu Jun 09 17:10:26 2016
 
 @author: darellvdv
 """
@@ -28,8 +28,8 @@ import cv2
 
 from skimage.segmentation import clear_border
 from skimage.measure import label
-#from skimage.measure import regionprops
-#from skimage.color import label2rgb
+from skimage.measure import regionprops
+from skimage.color import label2rgb
 from skimage import img_as_ubyte
 
 import scipy.misc
@@ -51,14 +51,14 @@ config = args["config"]
 import config
 
 # Load parameters
-line_amount = 6000 # must be able to divided by 40!
-line_length = 5000
+line_amount = 12000 # must be able to divided by 40!
+line_length = 6000
 spacing = 1 # change this to automaticcaly detect cell size
-degreelist = [359.8, 359.9, 0, 0.1, 0.2] # degrees to rotate best lines
+degreelist = config.degreelist #[359.8, 359.9, 0, 0.1, 0.2] # degrees to rotate best lines
 
 # Get filename and create output dir
-filename = "D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/Sugar_Bacolod_sugarcanefields_onefield_ortho.tif"
-output = "D:/Sugarcane_Project/201601_Sugar_Bacolod_sugarcanfields_zone_1/orthomosaics/output10"
+filename = args["image"]
+output = args["output"]
 
 def make_sure_path_exists(path):
     try:
@@ -132,8 +132,8 @@ def adaptivethresh_and_hough(image):
     cv_image = img_as_ubyte(regions_cleaned)
 
     # Apply hough line transformation
-    lines = cv2.HoughLinesP(cv_image,rho=1,theta=np.pi/180,threshold=200,lines=np.array([]),
-                        minLineLength=100,maxLineGap=5) # TO DO: MAKE SURE ONLY 180 RANGE IS RETURNED and minlinelength automatic adjust
+    lines = cv2.HoughLinesP(cv_image,rho=2,theta=np.pi/180,threshold=100,lines=np.array([]),
+                        minLineLength=100,maxLineGap=10) # TO DO: MAKE SURE ONLY 180 RANGE IS RETURNED and minlinelength automatic adjust
                         
     if not lines.any():
         print "Error: No Hough lines detected! Try to increase cropping area" # <- line not working, as lines is more than 1!
@@ -194,7 +194,7 @@ def gridcreate(line_amount, line_length, extent, angle, spacing):
     
     Creates grid without spatial reference
     '''
-    
+    ## CHANGEND IF <0 XMIN TO XMAX INSTEAD OF 0 AND - SPACING INSTEAD OF + ##
     # Initialize array of 2 by 3
     w, h = 2, line_amount
     begin_coord = [[0 for x in range(w)] for y in range(h)]
@@ -205,23 +205,23 @@ def gridcreate(line_amount, line_length, extent, angle, spacing):
     # check if angle is positive or negative and adjust xmin
     if anglecalc(coordinates)[1] < 0:
         xmin = 0 #(0 - (extent.shape[1] / 2))
-        ymax = 0
+        ymax = extent.shape[0]
         
         for i in range(line_amount):
-            begin_coord_array[i][0] = (xmin + (i * spacing))
+            begin_coord_array[i][0] = xmin
             
         for i in range(line_amount):
-            begin_coord_array[i][1] = ymax
+            begin_coord_array[i][1] = (ymax - (i * spacing))
         
     else:
-        xmin = extent.shape[1]
+        xmin = 0
         ymax = extent.shape[0]
                 
         for i in range(line_amount):
-            begin_coord_array[i][0] = (xmin - (i * spacing))
+            begin_coord_array[i][0] = xmin
             
         for i in range(line_amount):
-            begin_coord_array[i][1] = ymax
+            begin_coord_array[i][1] = (ymax - (i * spacing))
     
     # Calulcate end points based on length and angle 
     end_coord = [[0 for x in range(w)] for y in range(h)]
@@ -251,7 +251,7 @@ def extractvalues(line_grid, raster):
     length = (int(np.hypot(x1[1]-x0[1], y1[1]-y0[1])))
     
     # Check if line length is correct
-    if length != length:
+    if length != line_length:
         print 'Warning: line length not in same range, try re-cropping'
         sys.exit()
         
@@ -267,11 +267,14 @@ def extractvalues(line_grid, raster):
             
         # Transpose image and add 0 values to increase extent according to grid
         imaget = np.transpose(raster)
+        
+        ## COMMENTED OUT PART OF DIFFERENCE IN ANGLE, NOW JUST WORKS WITH POSITIVE ANGLE ##
+        
         # determine extension of image canvas based on grid
-        if anglecalc(coordinates)[1] < 0:
-            plus = (((xvalues_array[(line_amount-1),(line_length-1)]) + 2) - int(ndvi.shape[0]))
-        else:
-            plus = (((xvalues_array[(0),(0)]) + 2) + int(ndvi.shape[0]))
+        #if anglecalc(coordinates)[1] < 0:
+        #    plus = (((xvalues_array[(line_amount-1),(line_length-1)]) + 2) - int(ndvi.shape[0]))
+        #else:
+        plus = (((xvalues_array[(0),(0)]) + 2) + int(ndvi.shape[0]))
         newcol0 = np.zeros((plus, ndvi.shape[0]))
         imaget2 = np.append(imaget, newcol0, axis = 0)
         newcol1 = np.zeros((imaget2.shape[0], plus))
@@ -374,6 +377,7 @@ else:
         print 'Origin = (',geotransform[0], ',',geotransform[3],')'
         print 'Pixel Size = (',geotransform[1], ',',geotransform[5],')'
 
+
 #------------------------------------------------------------------------------#
 ## STEP 2 CALCULATE NDVI
 #------------------------------------------------------------------------------#
@@ -414,6 +418,9 @@ outBand.FlushCache()
 outDataSet.FlushCache()
 
 print "SUCESSFULLY CALCULATED NDVI AND SAVED TO DISC!"
+
+#line_length = int(math.sqrt((ndvi.shape[1]**2)+(ndvi.shape[0]**2)))
+#line_amount = 60000
 
 #----------------------------------------------------------------------------#
 ## STEP 3: CONVERT TO GRAYSCALE
@@ -499,7 +506,7 @@ grid = gridcreate(line_amount, line_length, ndvi, (anglecalc(coordinates)[0]), s
 grid = np.array(grid)
 
 # Plot the grid
-if args["plot"] == 'yes':
+if args["plot"] == 'yes2':
     print 'GRID CREATED! ..now showing plot'
     plt.imshow(ndvi)
     plt.plot([grid[0,:,0], grid[1,:,0]], [grid[0,:,1], grid[1,:,1]], 'ro-')
@@ -520,7 +527,7 @@ values = extractvalues(grid, ndvi)
 print 'VALUES EXTRACTED!'
 
 #------------------------------------------------------------------------------#
-## STEP 9 GET LINES WITH HIGHEST VALUE
+## STEP 9 GET LINES WITH HIGHEST VALUE b bbbv  bbbbbv bv 
 #------------------------------------------------------------------------------# 
 print "STEP 9 DETERMINING LINES WITH HIGHEST VALUES..."
 
@@ -531,15 +538,10 @@ for i in range(line_amount):
     valuestotal[i] = np.sum(maskedvalues[:,i])
 
 #valuestotal_max = valuestotal > np.percentile(valuestotal, 75)
-lineam = (line_amount / 30) # interval of 40 lines (differs per crop spacing! -> look for automatic detection)
-valuestotal_interval = ((valuestotal.reshape(lineam, 30).T) > np.percentile((valuestotal.reshape(lineam, 30).T), 
+lineam = (line_amount / 80) # interval of 40 lines (differs per crop spacing! -> look for automatic detection)
+valuestotal_interval = ((valuestotal.reshape(lineam, 80).T) > np.percentile((valuestotal.reshape(lineam, 80).T), 
                          99, axis=0)).flatten('F')
                          
-
-                         
-# Select lines from top 25 percentile for rotating
-best_lines = [val for is_good, val in zip(valuestotal_interval, (valuestotal.tolist())) if is_good]
-
 # Create array with sorted begin and end coordinates
 x0, y0 = grid[0,:,0], grid[0,:,1]
 begxy = np.vstack((x0, y0)).T
@@ -549,73 +551,32 @@ allresults = np.array(np.hstack((begxy, endxy)), dtype=float)
 
 # Get the best lines with coordinates
 bestlines_coord = (allresults[valuestotal_interval == True]).astype(np.float)
-bestlines_coord = bestlines_coord.astype(np.float)
 
 # Add values to best lines
-bestlines_val = valuestotal[valuestotal_interval == True]
-bestlines_val = bestlines_val.astype(np.float)
+bestlines_val = (valuestotal[valuestotal_interval == True]).astype(np.float)
 
+# Stack coords with values
 bestlines_coord_val = np.hstack((bestlines_coord, bestlines_val))
 
-
-# Indicate x value differences of less then 3
-diff = np.zeros((len(bestlines_coord_val), 1))
-windowSize = 2
-
-if anglecalc(coordinates)[1] < 0:
-    for i in range(0,len(bestlines_coord_val)-windowSize-1):
-        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) < 5) # <- not always working with + angles: see error when executing
-else:
-    for i in range(0,len(bestlines_coord_val)-windowSize+1):
-        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) < -5) # changed from >
-
-    for i in range(0,len(bestlines_coord_val)-windowSize-1):
-        diff[i] = np.diff(bestlines_coord_val[:,0][i:i+windowSize])
-        diff = -diff
-        diff = diff > -10
-        
-for i in range(0,len(bestlines_coord_val)-windowSize-1):
-    diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize])  -5)
-    diff = -diff
-    \
-
-#diff1 = np.zeros((len(bestlines_coord_val), 1))
-xcoordslist = bestlines_coord_val[:,0].tolist()
+# Extract x coordinates as a list
+xcoordslist = bestlines_coord_val[:,1].tolist() # now ycoords
+# Calculate difference between x coordinates with steps of 1 and return difference as a boolean list
 difflist = (np.diff(xcoordslist) >-10)
 difflist = np.append(difflist, [False])
-difflist = difflist.astype(int)
 
-difflist
+# Add difference boolean to best coordinates to filter out double lines
+bestlines_coord_val2 = np.column_stack((bestlines_coord_val, difflist))
+bestlines_coord_val3 = bestlines_coord_val[np.logical_not(bestlines_coord_val2[:,5] == 1)] # Now only removes closest line, while not looking at highest value
 
-bestline2 = np.column_stack((bestlines_coord_val, difflist))
-
-bestlines_coord_val = np.hstack((bestlines_coord, bestlines_val, difflist))
-bestlines_coord_val = bestlines_coord_val[np.logical_not(bestlines_coord_val[:,5] == 1)] # Now only removes closest line, while not looking at highest value
-
-
-# BUILD IN CHECK IF BEST LINES HAVE A MORE OR LESS EQUAL INTERVAL, IF NOT > ANGLE PROPALY WRONG #
+# BUILD IN CHECK IF BEST LINES HAVE A MORE OR LESS EQUAL INTERVAL, IF NOT -> ANGLE PROPALY WRONG #
 xcoordslist_best = bestlines_coord_val3[:,0].tolist()
 difflist_best = np.diff(xcoordslist_best)
 
-
-diff1list = diff1.tolist
-
-diff2 = np.zeros((len(bestlines_coord_val), 1))
-for i in range(0,len(bestlines_coord_val)-windowSize-1):
-    diff1[i] = np.diff(bestlines_coord_val[:,0][i:i+windowSize])
-    diff2[i] = np.diff(diff1[:,0][i:i+windowSize])
-    diff[i] = np.diff(bestlines_coord_val[:,0][i:i+windowSize])
-    print 'yes'
-else:
-    print 'no'
-
-
-
-# Plot the grid with best lines
+# Plot the grid with best lines  
 if args["plot"] == 'yes':
     print 'BEST LINES DETERMINED! ..now showing plot'
     plt.imshow(ndvi)
-    plt.plot([bestlines_coord_val[:,0], bestlines_coord_val[:,2]], [bestlines_coord_val[:,1], bestlines_coord_val[:,3]], '-ro')
+    plt.plot([bestlines_coord_val3[:,0], bestlines_coord_val3[:,2]], [bestlines_coord_val3[:,1], bestlines_coord_val3[:,3]], '-ro')
 
     plt.show()
 
@@ -623,16 +584,12 @@ else:
     print 'BEST LINES DETERMINED!'
     pass
 
-
-for i in range(0,len(bestlines_coord_val)-windowSize-1):
-    print (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) < -3)
-
 #------------------------------------------------------------------------------#
 ## STEP 10 ROTATE LINES AROUND CENTROID
 #------------------------------------------------------------------------------# 
 print "STEP 10 ROTATING LINES WITH HIGHEST VALUES AND EXTRACT NEW VALUES..."
 
-rotatedlines = rotate_lines(bestlines_coord_val, degreelist)
+rotatedlines = rotate_lines(bestlines_coord_val3, degreelist)
 
 # Get values from rotated lines
 raster = ndvi
@@ -645,14 +602,12 @@ for i in range(len(rotatedlines)):
 yvalues_array = np.zeros((h, w))
 for i in range(len(rotatedlines)):
     yvalues_array[i] = np.linspace(rotatedlines[i,1], rotatedlines[i,3], line_length)
-            
+
+# IMPROVE CODE BELOW, STILL A BIT MESSY AND PARTS NOT NEEDED -> SEE EXTRACT FUNCTION           
 # Transpose image and add 0 values to increase extent according to grid
 imaget = np.transpose(raster)
 # determine extension of image canvas based on grid
-if anglecalc(coordinates)[1] > 0:
-    plus = (((xvalues_array[(line_amount-1),(line_length-1)]) + 2) - int(ndvi.shape[0])) # <- fix this line!
-else:
-    plus = (((xvalues_array[(0),(0)]) + 2) + int(ndvi.shape[0]))
+plus = (((xvalues_array[(0),(0)]) + 2) + int(ndvi.shape[0]))
 newcol0 = np.zeros((plus, ndvi.shape[0]))
 imaget2 = np.append(imaget, newcol0, axis = 0)
 newcol1 = np.zeros((imaget2.shape[0], plus))
@@ -673,7 +628,6 @@ maskedvalues = np.ma.masked_array(valuesrotated, np.isnan(valuesrotated)) # mask
 valuestotalro = np.zeros((len(rotatedlines), 1))
 for i in range(len(rotatedlines)):
     valuestotalro[i] = np.sum(maskedvalues[:,i])
-
 
 lineam = (len(rotatedlines) / 5) # interval of 40 lines (differs per crop spacing! -> look for automatic detection)
 valuestotal_intervalrotated = ((valuestotalro.reshape(lineam, 5).T) > np.percentile((valuestotalro.reshape(lineam, 5).T), 
@@ -698,15 +652,6 @@ else:
 ## STEP 11 TRANSLATE IMAGE COORDINATES TO REAL WORLD COORDINATES
 #------------------------------------------------------------------------------# 
 print "STEP 10 TRANSLATING IMAGE COORDINATES TO REAL WORLD COORDINATES AND OUTPUTTING SHAPEFILE USING R..."
-
-#begincoord1 = grid[0:1,:,0].T
-#begincoord2 = grid[0:1,:,1].T
-#begincoord = np.hstack((begincoord1, begincoord2))
-#endcoord1 = grid[0,:,0:1]
-#endcoord2 = grid[1,:,0:1]
-#endcoord = np.hstack((endcoord1, endcoord2))
-
-#gridstack = np.hstack((begincoord, endcoord))
 
 # Flip Y axis
 projected_lines = np.copy(resultlines)

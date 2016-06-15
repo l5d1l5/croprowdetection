@@ -197,11 +197,11 @@ def gridcreate(line_amount, line_length, extent, angle, spacing):
     
     # check if angle is positive or negative and adjust xmin
     if anglecalc(coordinates)[1] < 0:
-        xmin = 0 #(0 - (extent.shape[1] / 2))
+        xmin = extent.shape[1] #(0 - (extent.shape[1] / 2))
         ymax = 0
         
         for i in range(line_amount):
-            begin_coord_array[i][0] = (xmin + (i * spacing))
+            begin_coord_array[i][0] = (xmin - (i * spacing))
             
         for i in range(line_amount):
             begin_coord_array[i][1] = ymax
@@ -261,10 +261,10 @@ def extractvalues(line_grid, raster):
         # Transpose image and add 0 values to increase extent according to grid
         imaget = np.transpose(raster)
         # determine extension of image canvas based on grid
-        if anglecalc(coordinates)[1] < 0:
-            plus = (((xvalues_array[(line_amount-1),(line_length-1)]) + 2) - int(ndvi.shape[0]))
-        else:
-            plus = (((xvalues_array[(0),(0)]) + 2) + int(ndvi.shape[0]))
+        #if anglecalc(coordinates)[1] < 0:
+        #    plus = (((xvalues_array[(line_amount-1),(line_length-1)]) + 2) - int(ndvi.shape[0]))
+        #else:
+        plus = (((xvalues_array[(0),(0)]) + 2) + int(ndvi.shape[0]))
         newcol0 = np.zeros((plus, ndvi.shape[0]))
         imaget2 = np.append(imaget, newcol0, axis = 0)
         newcol1 = np.zeros((imaget2.shape[0], plus))
@@ -492,7 +492,7 @@ grid = gridcreate(line_amount, line_length, ndvi, (anglecalc(coordinates)[0]), s
 grid = np.array(grid)
 
 # Plot the grid
-if args["plot"] == 'yes':
+if args["plot"] == 'yes2':
     print 'GRID CREATED! ..now showing plot'
     plt.imshow(ndvi)
     plt.plot([grid[0,:,0], grid[1,:,0]], [grid[0,:,1], grid[1,:,1]], 'ro-')
@@ -557,20 +557,23 @@ windowSize = 2
 
 if anglecalc(coordinates)[1] < 0:
     for i in range(0,len(bestlines_coord_val)-windowSize-1):
-        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) < 5) # <- NOW WORKING!
+        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) >-10) # <- NOW WORKING!
 else:
+    
     for i in range(0,len(bestlines_coord_val)-windowSize-1):
-        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) < -5) # changed from >
+        diff[i] = (np.diff(bestlines_coord_val[:,0][i:i+windowSize]) >-10)
+        #diff = -diff
+        #diff = diff > -10   
+    
+bestlines_coord_val2 = np.hstack((bestlines_coord, bestlines_val, diff))
+bestlines_coord_val3 = bestlines_coord_val[np.logical_not(bestlines_coord_val2[:,5] == 1)] # Now only removes closest line, while not looking at highest value
 
-bestlines_coord_val = np.hstack((bestlines_coord, bestlines_val, diff))
-bestlines_coord_val = bestlines_coord_val[np.logical_not(bestlines_coord_val[:,5] == 1)] # Now only removes closest line, while not looking at highest value
 
-
-# Plot the grid with best lines
+# Plot the grid with best lines  
 if args["plot"] == 'yes':
     print 'BEST LINES DETERMINED! ..now showing plot'
     plt.imshow(ndvi)
-    plt.plot([bestlines_coord_val[:,0], bestlines_coord_val[:,2]], [bestlines_coord_val[:,1], bestlines_coord_val[:,3]], '-ro')
+    plt.plot([bestlines_coord_val3[:,0], bestlines_coord_val3[:,2]], [bestlines_coord_val3[:,1], bestlines_coord_val3[:,3]], '-ro')
 
     plt.show()
 
@@ -583,7 +586,7 @@ else:
 #------------------------------------------------------------------------------# 
 print "STEP 10 ROTATING LINES WITH HIGHEST VALUES AND EXTRACT NEW VALUES..."
 
-rotatedlines = rotate_lines(bestlines_coord_val, degreelist)
+rotatedlines = rotate_lines(bestlines_coord_val3, degreelist)
 
 # Get values from rotated lines
 raster = ndvi
